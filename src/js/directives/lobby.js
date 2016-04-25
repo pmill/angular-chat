@@ -2,7 +2,7 @@
   "use strict";
 
   angular
-    .module('angular-pusher-chat')
+    .module('angular-chat')
     .directive('pmChatLobby', Directive);
 
   function Directive() {
@@ -25,26 +25,35 @@
     var vm = this;
 
     vm.data = {
+      lobbyName: 'public-chat-users',
       users: {},
-      chats: {}
+      rooms: [],
+      user: vm.user
     };
+
+
 
     activate();
 
     function activate() {
-      ChatRoomService.connectToRoom('public-chat-users', vm.user).then(function() {
-        ChatRoomService.onUserJoined().then(userDetailsReceived);
-        ChatRoomService.onUserDetailsReceived().then(userDetailsReceived);
-        ChatRoomService.onChatCreated().then(chatCreated)
+      ChatRoomService.connectToRoom(vm.data.lobbyName, vm.user).then(function() {
+        ChatRoomService.sendUserConnected();
+        ChatRoomService.onUserJoined(userDetailsReceived);
+        ChatRoomService.onUserDetailsReceived(userDetailsReceived);
+        ChatRoomService.onRoomCreated(roomCreated);
       });
     }
 
     function userDetailsReceived(userDetails) {
-      vm.data.users[userDetails.id] = userDetails;
+      if (userDetails.id !== vm.data.user.id) {
+        vm.data.users[userDetails.id] = userDetails;
+        $scope.$apply();
+      }
     }
 
-    function chatCreated(channelName) {
-      vm.data.chats.push(channelName);
+    function roomCreated(roomName) {
+      vm.data.rooms.push(roomName);
+      $scope.$apply();
     }
   }
 })();

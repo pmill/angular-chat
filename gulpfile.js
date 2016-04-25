@@ -16,7 +16,6 @@ var cache = require('gulp-cache');
 
 global.paths = {
   js: [
-    './node_modules/pusher-angular/lib/pusher-angular.js',
     './src/js/module.js',
     './src/js/**/*.js',
     './tmp/*.js'
@@ -38,7 +37,7 @@ gulp.task('less', function() {
   return gulp.src(global.paths.less)
     .pipe(sourcemaps.init())
     .pipe(less({paths: [ path.join(__dirname, 'less', 'includes') ]}))
-    .pipe(concat('angular-pusher-chat.css'))
+    .pipe(concat('angular-chat.css'))
     .pipe(autoprefixer())
     .pipe(sourcemaps.write())
     .pipe(gulp.dest(global.paths.dist))
@@ -46,7 +45,7 @@ gulp.task('less', function() {
 });
 
 gulp.task('css', ['less'], function() {
-  return gulp.src(global.paths.dist + '/angular-pusher-chat.css')
+  return gulp.src(global.paths.dist + '/angular-chat.css')
     .pipe(sourcemaps.init())
     .pipe(minifyCss())
     .pipe(sourcemaps.write())
@@ -57,15 +56,15 @@ gulp.task('css', ['less'], function() {
 gulp.task('watch', function() {
   gulp.watch([global.paths.js], ['lintjs', 'templates', 'js']).on('change', logChanges);
   gulp.watch([global.paths.less], ['less']).on('change', logChanges);
-  gulp.watch([global.paths.dist + '/angular-pusher-chat.css'], ['css']).on('change', logChanges);
+  gulp.watch([global.paths.dist + '/angular-chat.css'], ['css']).on('change', logChanges);
 });
 
 gulp.task('js', ['templates'], function() {
   return gulp.src(global.paths.js)
     .pipe(sourcemaps.init())
-    .pipe(concat('angular-pusher-chat.js'))
+    .pipe(concat('angular-chat.js'))
     .pipe(gulp.dest(global.paths.dist))
-    .pipe(rename("angular-pusher-chat.min.js"))
+    .pipe(rename("angular-chat.min.js"))
     .pipe(uglify())
     .pipe(sourcemaps.write('./'))
     .pipe(gulp.dest(global.paths.dist))
@@ -74,7 +73,7 @@ gulp.task('js', ['templates'], function() {
 gulp.task('templates', function() {
   return gulp.src(global.paths.templates)
     .pipe(templateCache('templates.js', {
-      module: 'angular-pusher-chat',
+      module: 'angular-chat',
       moduleSystem: 'iife',
       transformUrl: function(url) {
         return url.replace(/js\/templates\//, '')

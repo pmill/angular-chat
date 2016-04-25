@@ -1,3 +1,3 @@
-require('./dist/angular-pusher-chat');
+require('./dist/angular-chat');
 
-module.exports = 'angular-pusher-chat';
+module.exports = 'angular-chat';

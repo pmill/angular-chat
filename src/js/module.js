@@ -2,5 +2,5 @@
   "use strict";
 
   angular
-    .module('angular-pusher-chat', ['pusher-angular']);
+    .module('angular-chat', []);
 })();

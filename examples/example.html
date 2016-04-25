@@ -3,38 +3,40 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" href="../dist/angular-pusher-chat.min.css">
+    <link rel="stylesheet" href="../dist/angular-chat.min.css">
 </head>
 <body ng-app="demo" ng-controller="demoCtrl as vm">
 
 <h1>Title</h1>
 <pm-chat-lobby user="vm.user"></pm-chat-lobby>
 
-<script src="https://js.pusher.com/3.0/pusher.min.js"></script>
+<script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.5.0/angular.min.js"></script>
-<script src="../dist/angular-pusher-chat.js"></script>
+<script src="../dist/angular-chat.js"></script>
 <script>
-    Pusher.log = function(message) {
-        if (window.console && window.console.log) {
-            window.console.log(message);
-        }
-    };
-
-    var app = angular.module('demo', ['angular-pusher-chat']);
+    var app = angular.module('demo', ['angular-chat']);
     app.controller('demoCtrl', function () {
         var vm = this;
 
         vm.user = {
-            id: null,
-            name: null
+            id:  Math.floor((Math.random() * 100) + 1),
+            name: makeid()
         };
     });
 
-    app.constant('pusherConfig', {
-        apiKey: 'b75a439adbdeceb7303a',
-        encrypted: true,
-        cluster: 'eu'
+    app.constant('socketConfig', {
+        channelId: 'PTcZCpqbMV0qEy22'
     });
+
+    function makeid() {
+        var text = "";
+        var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+        for( var i=0; i < 5; i++ )
+            text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+        return text;
+    }
 </script>
 </body>
 </html>

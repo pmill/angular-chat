@@ -2,57 +2,66 @@
   "use strict";
 
   angular
-    .module('angular-pusher-chat')
+    .module('angular-chat')
     .factory('ChatRoomService', Service);
 
-  Service.$inject = ['PusherService'];
+  Service.$inject = ['SocketService'];
 
-  function Service(PusherService) {
+  function Service(SocketService) {
     var currentUser = null;
-    var channelName = null;
+    var roomName = null;
 
     return {
       connectToRoom: connectToRoom,
-      onChatCreated: onChatCreated,
+      onRoomCreated: onRoomCreated,
       onMessageReceived: onMessageReceived,
       onUserDetailsReceived: onUserDetailsReceived,
       onUserJoined: onUserJoined,
       sendMessage: sendMessage,
+      sendUserConnected: sendUserConnected,
       sendUserDetails: sendUserDetails,
       startChatWithUser: startChatWithUser
     };
 
     function connectToRoom(channel, userDetails) {
-      channelName = channel;
+      roomName = channel;
       currentUser = userDetails;
 
-      return PusherService.subscribe(channelName).then(function() {
-        PusherService.send(channelName, 'user.connected', currentUser);
+      return SocketService.connect().then(function() {
+        return SocketService.subscribe(roomName);
       });
     }
 
     function sendMessage(message) {
-      return PusherService.send(channelName, 'message.received', message);
+      return SocketService.send(roomName, 'message.received', message);
+    }
+
+    function sendUserConnected() {
+      return SocketService.send(roomName, 'user.connected', currentUser);
     }
 
     function sendUserDetails() {
-      return PusherService.send(channelName, 'user.details', currentUser);
+      console.log('sendUserDetails');
+      return SocketService.send(roomName, 'user.details', currentUser);
     }
 
-    function onChatCreated() {
-      return PusherService.event(channelName, 'chat.created');
+    function onRoomCreated(callback) {
+      return SocketService.on(roomName, 'room.created', callback);
     }
 
-    function onMessageReceived() {
-      return PusherService.event(channelName, 'message.received');
+    function onMessageReceived(callback) {
+      return SocketService.on(roomName, 'message.received', callback);
     }
 
-    function onUserJoined() {
-      return PusherService.event(channelName, 'user.connected');
+    function onUserJoined(callback) {
+      return SocketService.on(roomName, 'user.connected', callback).then(function() {
+        console.log('onUserJoined');
+        sendUserDetails(currentUser);
+      });
     }
 
-    function onUserDetailsReceived() {
-      return PusherService.event(channelName, 'user.details');
+    function onUserDetailsReceived(callback) {
+      return SocketService.on(roomName, 'user.details', callback);
     }
 
     function startChatWithUser(userId) {
@@ -60,9 +69,9 @@
         throw "Can't start a chat with yourself!";
       }
 
-      var channelName = createRoomChannelName([currentUser.id, userId]);
-      connectToRoom(channelName).then(function() {
-        return PusherService.send(channelName, 'chat.created', channelName);
+      var roomName = createRoomChannelName([currentUser.id, userId]);
+      connectToRoom(roomName).then(function() {
+        return SocketService.send(roomName, 'chat.created', roomName);
       });
     }
 
