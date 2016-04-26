@@ -31,6 +31,10 @@
       user: vm.user
     };
 
+    vm.state = {
+      loading: true
+    };
+
     activate();
 
     function activate() {
@@ -50,6 +54,7 @@
     function userDetailsReceived(userDetails) {
       if (userDetails.id !== vm.data.user.id) {
         vm.data.users[userDetails.id] = userDetails;
+        vm.state.loading = false;
         $scope.$apply();
       }
     }

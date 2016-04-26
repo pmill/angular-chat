@@ -37,6 +37,10 @@
       user: vm.user
     };
 
+    vm.state = {
+      loading: true
+    };
+
     activate();
 
     function activate() {
@@ -56,6 +60,7 @@
     function userDetailsReceived(userDetails) {
       if (userDetails.id !== vm.data.user.id) {
         vm.data.users[userDetails.id] = userDetails;
+        vm.state.loading = false;
         $scope.$apply();
       }
     }
@@ -248,4 +253,4 @@
     }
   }
 })();
-(function(){angular.module("angular-chat").run(["$templateCache", function($templateCache) {$templateCache.put("lobby.html","<div>\n    <h1>Lobby {{vm.data.user}}</h1>\n\n    <ul>\n        <li ng-repeat=\"user in vm.data.users\">\n            {{user}}\n        </li>\n    </ul>\n</div>");}]);})();
+(function(){angular.module("angular-chat").run(["$templateCache", function($templateCache) {$templateCache.put("lobby.html","<div class=\"row\">\n    <div class=\"col-md-4 col-xs-12\">\n        <div class=\"panel panel-default\">\n            <div class=\"panel-heading\">\n                <h3 class=\"panel-title\"><span class=\"fa fa-users\"></span> Lobby</h3>\n            </div>\n\n            <div class=\"list-group\">\n                <button class=\"list-group-item\" ng-repeat=\"u in vm.data.users\" ng-if=\"!vm.state.loading\">\n                    <h4 class=\"list-group-item-heading\">\n                        <span class=\"fa fa-user\"></span> {{u.name}}\n                    </h4>\n                </button>\n                <span class=\"list-group-item\" ng-if=\"vm.state.loading\">\n                    <h4 class=\"list-group-item-heading\">\n                        <i class=\"fa fa-cog fa-spin fa-fw margin-bottom\"></i>\n                        loading...\n                    </h4>\n                </span>\n            </div>\n        </div>\n    </div>\n\n    <div class=\"col-md-8\">\n        <div class=\"panel panel-default\">\n            <div class=\"panel-heading\">\n                <h3 class=\"panel-title\"><span class=\"fa fa-comment-o\"></span> Room</h3>\n            </div>\n        </div>\n    </div>\n</div>\n");}]);})();
