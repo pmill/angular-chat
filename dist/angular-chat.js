@@ -9,11 +9,73 @@
 
   angular
     .module('angular-chat')
+    .directive('pmChatLobby', Directive);
+
+  function Directive() {
+    return {
+      restrict: 'E',
+      scope: {
+        user: '='
+      },
+      templateUrl: 'lobby.html',
+      replace: true,
+      controller: Controller,
+      controllerAs: 'vm',
+      bindToController: true
+    };
+  }
+
+  Controller.$inject = ['$scope', 'ChatRoomService'];
+
+  function Controller($scope, ChatRoomService) {
+    var vm = this;
+
+    vm.data = {
+      lobbyName: 'public-chat-users',
+      users: {},
+      rooms: [],
+      user: vm.user
+    };
+
+    activate();
+
+    function activate() {
+      ChatRoomService.connectToRoom(vm.data.lobbyName, vm.user).then(function() {
+        ChatRoomService.sendUserConnected();
+        ChatRoomService.onUserConnected(userDetailsReceived);
+        ChatRoomService.onUserDisconnected(userDisconnected);
+        ChatRoomService.onUserDetailsReceived(userDetailsReceived);
+        ChatRoomService.onRoomCreated(roomCreated);
+      });
+    }
+
+    function userDisconnected(userDetails) {
+      delete vm.data.users[userDetails.id];
+    }
+
+    function userDetailsReceived(userDetails) {
+      if (userDetails.id !== vm.data.user.id) {
+        vm.data.users[userDetails.id] = userDetails;
+        $scope.$apply();
+      }
+    }
+
+    function roomCreated(roomName) {
+      vm.data.rooms.push(roomName);
+      $scope.$apply();
+    }
+  }
+})();
+(function() {
+  "use strict";
+
+  angular
+    .module('angular-chat')
     .factory('ChatRoomService', Service);
 
-  Service.$inject = ['SocketService'];
+  Service.$inject = ['$window', 'SocketService'];
 
-  function Service(SocketService) {
+  function Service($window, SocketService) {
     var currentUser = null;
     var roomName = null;
 
@@ -22,7 +84,8 @@
       onRoomCreated: onRoomCreated,
       onMessageReceived: onMessageReceived,
       onUserDetailsReceived: onUserDetailsReceived,
-      onUserJoined: onUserJoined,
+      onUserConnected: onUserConnected,
+      onUserDisconnected: onUserDisconnected,
       sendMessage: sendMessage,
       sendUserConnected: sendUserConnected,
       sendUserDetails: sendUserDetails,
@@ -32,6 +95,10 @@
     function connectToRoom(channel, userDetails) {
       roomName = channel;
       currentUser = userDetails;
+
+      $window.onbeforeunload = function () {
+        SocketService.send(roomName, 'user.disconnected', currentUser);
+      };
 
       return SocketService.connect().then(function() {
         return SocketService.subscribe(roomName);
@@ -47,7 +114,6 @@
     }
 
     function sendUserDetails() {
-      console.log('sendUserDetails');
       return SocketService.send(roomName, 'user.details', currentUser);
     }
 
@@ -59,11 +125,17 @@
       return SocketService.on(roomName, 'message.received', callback);
     }
 
-    function onUserJoined(callback) {
-      return SocketService.on(roomName, 'user.connected', callback).then(function() {
-        console.log('onUserJoined');
+    function onUserConnected(callback) {
+      return SocketService.on(roomName, 'user.connected', onUserConnectedCallback);
+
+      function onUserConnectedCallback(userDetails) {
         sendUserDetails(currentUser);
-      });
+        callback(userDetails)
+      }
+    }
+
+    function onUserDisconnected(callback) {
+      return SocketService.on(roomName, 'user.disconnected', callback);
     }
 
     function onUserDetailsReceived(callback) {
@@ -77,7 +149,7 @@
 
       var roomName = createRoomChannelName([currentUser.id, userId]);
       connectToRoom(roomName).then(function() {
-        return SocketService.send(roomName, 'chat.created', roomName);
+        return SocketService.send(roomName, 'room.created', roomName);
       });
     }
 
@@ -107,6 +179,7 @@
     return {
       connect: connect,
       on: on,
+      onDisconnect: onDisconnect,
       room: room,
       send: send,
       subscribe: subscribe
@@ -117,7 +190,6 @@
 
       return $q(function(resolve, reject) {
         client.on('open', function (error) {
-          console.log('open');
           if (error) {
             return reject(error);
           }
@@ -127,14 +199,22 @@
       });
     }
 
-    function on(roomName, eventName, callback) {
+    function onDisconnect() {
       return $q(function(resolve, reject) {
-        room(roomName).on('data', function (data) {
-          if (data.event == eventName) {
-            callback(data.payload);
-            return resolve(data.payload);
-          }
+        client.on('close', function () {
+          console.log('close()');
+          resolve();
         });
+      });
+    }
+
+    function on(roomName, eventName, callback) {
+      console.log('subscribing to event', roomName, eventName);
+      room(roomName).on('data', function (data) {
+        if (data.event == eventName) {
+          console.log('processing message', roomName, eventName, data);
+          callback(data.payload);
+        }
       });
     }
 
@@ -165,65 +245,6 @@
 
     function room(roomName) {
       return rooms[roomName];
-    }
-  };
-})();
-(function() {
-  "use strict";
-
-  angular
-    .module('angular-chat')
-    .directive('pmChatLobby', Directive);
-
-  function Directive() {
-    return {
-      restrict: 'E',
-      scope: {
-        user: '='
-      },
-      templateUrl: 'lobby.html',
-      replace: true,
-      controller: Controller,
-      controllerAs: 'vm',
-      bindToController: true
-    };
-  }
-
-  Controller.$inject = ['$scope', 'ChatRoomService'];
-
-  function Controller($scope, ChatRoomService) {
-    var vm = this;
-
-    vm.data = {
-      lobbyName: 'public-chat-users',
-      users: {},
-      rooms: [],
-      user: vm.user
-    };
-
-
-
-    activate();
-
-    function activate() {
-      ChatRoomService.connectToRoom(vm.data.lobbyName, vm.user).then(function() {
-        ChatRoomService.sendUserConnected();
-        ChatRoomService.onUserJoined(userDetailsReceived);
-        ChatRoomService.onUserDetailsReceived(userDetailsReceived);
-        ChatRoomService.onRoomCreated(roomCreated);
-      });
-    }
-
-    function userDetailsReceived(userDetails) {
-      if (userDetails.id !== vm.data.user.id) {
-        vm.data.users[userDetails.id] = userDetails;
-        $scope.$apply();
-      }
-    }
-
-    function roomCreated(roomName) {
-      vm.data.rooms.push(roomName);
-      $scope.$apply();
     }
   }
 })();

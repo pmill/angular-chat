@@ -5,9 +5,9 @@
     .module('angular-chat')
     .factory('ChatRoomService', Service);
 
-  Service.$inject = ['SocketService'];
+  Service.$inject = ['$window', 'SocketService'];
 
-  function Service(SocketService) {
+  function Service($window, SocketService) {
     var currentUser = null;
     var roomName = null;
 
@@ -16,7 +16,8 @@
       onRoomCreated: onRoomCreated,
       onMessageReceived: onMessageReceived,
       onUserDetailsReceived: onUserDetailsReceived,
-      onUserJoined: onUserJoined,
+      onUserConnected: onUserConnected,
+      onUserDisconnected: onUserDisconnected,
       sendMessage: sendMessage,
       sendUserConnected: sendUserConnected,
       sendUserDetails: sendUserDetails,
@@ -26,6 +27,10 @@
     function connectToRoom(channel, userDetails) {
       roomName = channel;
       currentUser = userDetails;
+
+      $window.onbeforeunload = function () {
+        SocketService.send(roomName, 'user.disconnected', currentUser);
+      };
 
       return SocketService.connect().then(function() {
         return SocketService.subscribe(roomName);
@@ -41,7 +46,6 @@
     }
 
     function sendUserDetails() {
-      console.log('sendUserDetails');
       return SocketService.send(roomName, 'user.details', currentUser);
     }
 
@@ -53,11 +57,17 @@
       return SocketService.on(roomName, 'message.received', callback);
     }
 
-    function onUserJoined(callback) {
-      return SocketService.on(roomName, 'user.connected', callback).then(function() {
-        console.log('onUserJoined');
+    function onUserConnected(callback) {
+      return SocketService.on(roomName, 'user.connected', onUserConnectedCallback);
+
+      function onUserConnectedCallback(userDetails) {
         sendUserDetails(currentUser);
-      });
+        callback(userDetails)
+      }
+    }
+
+    function onUserDisconnected(callback) {
+      return SocketService.on(roomName, 'user.disconnected', callback);
     }
 
     function onUserDetailsReceived(callback) {
@@ -71,7 +81,7 @@
 
       var roomName = createRoomChannelName([currentUser.id, userId]);
       connectToRoom(roomName).then(function() {
-        return SocketService.send(roomName, 'chat.created', roomName);
+        return SocketService.send(roomName, 'room.created', roomName);
       });
     }
 

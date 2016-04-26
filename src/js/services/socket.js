@@ -14,6 +14,7 @@
     return {
       connect: connect,
       on: on,
+      onDisconnect: onDisconnect,
       room: room,
       send: send,
       subscribe: subscribe
@@ -24,7 +25,6 @@
 
       return $q(function(resolve, reject) {
         client.on('open', function (error) {
-          console.log('open');
           if (error) {
             return reject(error);
           }
@@ -34,14 +34,22 @@
       });
     }
 
-    function on(roomName, eventName, callback) {
+    function onDisconnect() {
       return $q(function(resolve, reject) {
-        room(roomName).on('data', function (data) {
-          if (data.event == eventName) {
-            callback(data.payload);
-            return resolve(data.payload);
-          }
+        client.on('close', function () {
+          console.log('close()');
+          resolve();
         });
+      });
+    }
+
+    function on(roomName, eventName, callback) {
+      console.log('subscribing to event', roomName, eventName);
+      room(roomName).on('data', function (data) {
+        if (data.event == eventName) {
+          console.log('processing message', roomName, eventName, data);
+          callback(data.payload);
+        }
       });
     }
 
@@ -73,5 +81,5 @@
     function room(roomName) {
       return rooms[roomName];
     }
-  };
+  }
 })();

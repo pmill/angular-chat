@@ -31,17 +31,20 @@
       user: vm.user
     };
 
-
-
     activate();
 
     function activate() {
       ChatRoomService.connectToRoom(vm.data.lobbyName, vm.user).then(function() {
         ChatRoomService.sendUserConnected();
-        ChatRoomService.onUserJoined(userDetailsReceived);
+        ChatRoomService.onUserConnected(userDetailsReceived);
+        ChatRoomService.onUserDisconnected(userDisconnected);
         ChatRoomService.onUserDetailsReceived(userDetailsReceived);
         ChatRoomService.onRoomCreated(roomCreated);
       });
+    }
+
+    function userDisconnected(userDetails) {
+      delete vm.data.users[userDetails.id];
     }
 
     function userDetailsReceived(userDetails) {
