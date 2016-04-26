@@ -13,6 +13,7 @@
 
     return {
       connect: connect,
+      disconnect: disconnect,
       on: on,
       onDisconnect: onDisconnect,
       room: room,
@@ -32,6 +33,11 @@
           return resolve();
         });
       });
+    }
+
+    function disconnect(roomName, user) {
+      send(roomName, 'user.disconnected', user);
+      client.close();
     }
 
     function onDisconnect() {

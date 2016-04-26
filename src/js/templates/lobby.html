@@ -6,7 +6,10 @@
             </div>
 
             <div class="list-group">
-                <button class="list-group-item" ng-repeat="u in vm.data.users" ng-if="!vm.state.loading">
+                <button class="list-group-item"
+                        ng-repeat="u in vm.data.users"
+                        ng-if="!vm.state.loading"
+                        ng-click="vm.chatWithUser(u)">
                     <h4 class="list-group-item-heading">
                         <span class="fa fa-user"></span> {{u.name}}
                     </h4>
@@ -22,7 +25,7 @@
     </div>
 
     <div class="col-md-8">
-        <div class="panel panel-default">
+        <div class="panel panel-default" ng-if="vm.data.selectedRoom !== null">
             <div class="panel-heading">
                 <h3 class="panel-title"><span class="fa fa-comment-o"></span> Room</h3>
             </div>

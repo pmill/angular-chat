@@ -34,23 +34,33 @@
       lobbyName: 'public-chat-users',
       users: {},
       rooms: [],
-      user: vm.user
+      user: vm.user,
+      selectedRoom: null
     };
 
     vm.state = {
       loading: true
     };
 
+    vm.chatWithUser = chatWithUser;
+
     activate();
 
     function activate() {
-      ChatRoomService.connectToRoom(vm.data.lobbyName, vm.user).then(function() {
-        ChatRoomService.sendUserConnected();
-        ChatRoomService.onUserConnected(userDetailsReceived);
-        ChatRoomService.onUserDisconnected(userDisconnected);
-        ChatRoomService.onUserDetailsReceived(userDetailsReceived);
-        ChatRoomService.onRoomCreated(roomCreated);
+      var lobby = ChatRoomService.fetchRoom(vm.data.lobbyName, vm.user);
+      lobby.connect(vm.data.lobbyName, vm.user).then(function() {
+        lobby.sendUserConnected();
+        lobby.onUserConnected(userDetailsReceived);
+        lobby.onUserDisconnected(userDisconnected);
+        lobby.onUserDetailsReceived(userDetailsReceived);
+        lobby.onRoomCreated(roomCreated);
       });
+    }
+
+    function chatWithUser(user) {
+      if (vm.data.selectedRoom !== null) {
+        ChatRoomService.disconnect();
+      }
     }
 
     function userDisconnected(userDetails) {
@@ -81,78 +91,92 @@
   Service.$inject = ['$window', 'SocketService'];
 
   function Service($window, SocketService) {
-    var currentUser = null;
-    var roomName = null;
+    var Chatroom = function(roomName, userDetails) {
+      this.roomName = roomName;
+      this.currentUser = userDetails;
+    };
+
+    Chatroom.prototype.connect = connect;
+    Chatroom.prototype.disconnect = disconnect;
+    Chatroom.prototype.onRoomCreated = onRoomCreated;
+    Chatroom.prototype.onMessageReceived = onMessageReceived;
+    Chatroom.prototype.onUserDetailsReceived = onUserDetailsReceived;
+    Chatroom.prototype.onUserConnected = onUserConnected;
+    Chatroom.prototype.onUserDisconnected = onUserDisconnected;
+    Chatroom.prototype.sendMessage = sendMessage;
+    Chatroom.prototype.sendUserConnected = sendUserConnected;
+    Chatroom.prototype.sendUserDetails = sendUserDetails;
+    Chatroom.prototype.startChatWithUser = startChatWithUser;
 
     return {
-      connectToRoom: connectToRoom,
-      onRoomCreated: onRoomCreated,
-      onMessageReceived: onMessageReceived,
-      onUserDetailsReceived: onUserDetailsReceived,
-      onUserConnected: onUserConnected,
-      onUserDisconnected: onUserDisconnected,
-      sendMessage: sendMessage,
-      sendUserConnected: sendUserConnected,
-      sendUserDetails: sendUserDetails,
+      fetchRoom: fetchRoom,
       startChatWithUser: startChatWithUser
     };
 
-    function connectToRoom(channel, userDetails) {
-      roomName = channel;
-      currentUser = userDetails;
+    function fetchRoom(roomName, userDetails) {
+      return new Chatroom(roomName, userDetails);
+    }
+
+    function connect() {
+      var room = this;
 
       $window.onbeforeunload = function () {
-        SocketService.send(roomName, 'user.disconnected', currentUser);
+        SocketService.send(this.roomName, 'user.disconnected', this.currentUser);
       };
 
       return SocketService.connect().then(function() {
-        return SocketService.subscribe(roomName);
+        return SocketService.subscribe(room.roomName);
       });
     }
 
+    function disconnect() {
+      SocketService.disconnect(this.roomName, this.currentUser);
+    }
+
     function sendMessage(message) {
-      return SocketService.send(roomName, 'message.received', message);
+      return SocketService.send(this.roomName, 'message.received', message);
     }
 
     function sendUserConnected() {
-      return SocketService.send(roomName, 'user.connected', currentUser);
+      return SocketService.send(this.roomName, 'user.connected', this.currentUser);
     }
 
     function sendUserDetails() {
-      return SocketService.send(roomName, 'user.details', currentUser);
+      return SocketService.send(this.roomName, 'user.details', this.currentUser);
     }
 
     function onRoomCreated(callback) {
-      return SocketService.on(roomName, 'room.created', callback);
+      return SocketService.on(this.roomName, 'room.created', this.callback);
     }
 
     function onMessageReceived(callback) {
-      return SocketService.on(roomName, 'message.received', callback);
+      return SocketService.on(this.roomName, 'message.received', this.callback);
     }
 
     function onUserConnected(callback) {
-      return SocketService.on(roomName, 'user.connected', onUserConnectedCallback);
+      var room = this;
+      return SocketService.on(this.roomName, 'user.connected', onUserConnectedCallback);
 
       function onUserConnectedCallback(userDetails) {
-        sendUserDetails(currentUser);
+        room.sendUserDetails(room.currentUser);
         callback(userDetails)
       }
     }
 
     function onUserDisconnected(callback) {
-      return SocketService.on(roomName, 'user.disconnected', callback);
+      return SocketService.on(this.roomName, 'user.disconnected', callback);
     }
 
     function onUserDetailsReceived(callback) {
-      return SocketService.on(roomName, 'user.details', callback);
+      return SocketService.on(this.roomName, 'user.details', callback);
     }
 
     function startChatWithUser(userId) {
-      if (userId === currentUser.id) {
+      if (userId === this.currentUser.id) {
         throw "Can't start a chat with yourself!";
       }
 
-      var roomName = createRoomChannelName([currentUser.id, userId]);
+      var roomName = createRoomChannelName([this.currentUser.id, userId]);
       connectToRoom(roomName).then(function() {
         return SocketService.send(roomName, 'room.created', roomName);
       });
@@ -183,6 +207,7 @@
 
     return {
       connect: connect,
+      disconnect: disconnect,
       on: on,
       onDisconnect: onDisconnect,
       room: room,
@@ -202,6 +227,11 @@
           return resolve();
         });
       });
+    }
+
+    function disconnect(roomName, user) {
+      send(roomName, 'user.disconnected', user);
+      client.close();
     }
 
     function onDisconnect() {
@@ -253,4 +283,4 @@
     }
   }
 })();
-(function(){angular.module("angular-chat").run(["$templateCache", function($templateCache) {$templateCache.put("lobby.html","<div class=\"row\">\n    <div class=\"col-md-4 col-xs-12\">\n        <div class=\"panel panel-default\">\n            <div class=\"panel-heading\">\n                <h3 class=\"panel-title\"><span class=\"fa fa-users\"></span> Lobby</h3>\n            </div>\n\n            <div class=\"list-group\">\n                <button class=\"list-group-item\" ng-repeat=\"u in vm.data.users\" ng-if=\"!vm.state.loading\">\n                    <h4 class=\"list-group-item-heading\">\n                        <span class=\"fa fa-user\"></span> {{u.name}}\n                    </h4>\n                </button>\n                <span class=\"list-group-item\" ng-if=\"vm.state.loading\">\n                    <h4 class=\"list-group-item-heading\">\n                        <i class=\"fa fa-cog fa-spin fa-fw margin-bottom\"></i>\n                        loading...\n                    </h4>\n                </span>\n            </div>\n        </div>\n    </div>\n\n    <div class=\"col-md-8\">\n        <div class=\"panel panel-default\">\n            <div class=\"panel-heading\">\n                <h3 class=\"panel-title\"><span class=\"fa fa-comment-o\"></span> Room</h3>\n            </div>\n        </div>\n    </div>\n</div>\n");}]);})();
+(function(){angular.module("angular-chat").run(["$templateCache", function($templateCache) {$templateCache.put("lobby.html","<div class=\"row\">\n    <div class=\"col-md-4 col-xs-12\">\n        <div class=\"panel panel-default\">\n            <div class=\"panel-heading\">\n                <h3 class=\"panel-title\"><span class=\"fa fa-users\"></span> Lobby</h3>\n            </div>\n\n            <div class=\"list-group\">\n                <button class=\"list-group-item\"\n                        ng-repeat=\"u in vm.data.users\"\n                        ng-if=\"!vm.state.loading\"\n                        ng-click=\"vm.chatWithUser(u)\">\n                    <h4 class=\"list-group-item-heading\">\n                        <span class=\"fa fa-user\"></span> {{u.name}}\n                    </h4>\n                </button>\n                <span class=\"list-group-item\" ng-if=\"vm.state.loading\">\n                    <h4 class=\"list-group-item-heading\">\n                        <i class=\"fa fa-cog fa-spin fa-fw margin-bottom\"></i>\n                        loading...\n                    </h4>\n                </span>\n            </div>\n        </div>\n    </div>\n\n    <div class=\"col-md-8\">\n        <div class=\"panel panel-default\" ng-if=\"vm.data.selectedRoom !== null\">\n            <div class=\"panel-heading\">\n                <h3 class=\"panel-title\"><span class=\"fa fa-comment-o\"></span> Room</h3>\n            </div>\n        </div>\n    </div>\n</div>\n");}]);})();
