@@ -33,7 +33,6 @@
     vm.data = {
       lobbyName: 'public-chat-users',
       users: {},
-      rooms: [],
       user: vm.user,
       selectedRoom: null
     };
@@ -59,7 +58,13 @@
 
     function chatWithUser(user) {
       if (vm.data.selectedRoom !== null) {
-        ChatRoomService.disconnect();
+        vm.data.selectedRoom.disconnect();
+      }
+
+      if (user.room === null) {
+        vm.data.selectedRoom = user.room;
+      } else {
+        vm.data.selectedRoom = user.room = ChatRoomService.startChatWithUser(vm.user, user)
       }
     }
 
@@ -171,13 +176,13 @@
       return SocketService.on(this.roomName, 'user.details', callback);
     }
 
-    function startChatWithUser(userId) {
-      if (userId === this.currentUser.id) {
+    function startChatWithUser(instigator, user) {
+      if (user.id === instigator.id) {
         throw "Can't start a chat with yourself!";
       }
 
-      var roomName = createRoomChannelName([this.currentUser.id, userId]);
-      connectToRoom(roomName).then(function() {
+      var roomName = createRoomChannelName([instigator.id, user.id]);
+      fetchRoom(roomName, instigator).then(function() {
         return SocketService.send(roomName, 'room.created', roomName);
       });
     }

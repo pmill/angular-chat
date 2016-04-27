@@ -88,15 +88,13 @@
       return SocketService.on(this.roomName, 'user.details', callback);
     }
 
-    function startChatWithUser(userId) {
-      if (userId === this.currentUser.id) {
+    function startChatWithUser(instigator, user) {
+      if (user.id === instigator.id) {
         throw "Can't start a chat with yourself!";
       }
 
-      var roomName = createRoomChannelName([this.currentUser.id, userId]);
-      connectToRoom(roomName).then(function() {
-        return SocketService.send(roomName, 'room.created', roomName);
-      });
+      var roomName = createRoomChannelName([instigator.id, user.id]);
+      return fetchRoom(roomName, instigator);
     }
 
     function createRoomChannelName(userIds) {

@@ -27,7 +27,6 @@
     vm.data = {
       lobbyName: 'public-chat-users',
       users: {},
-      rooms: [],
       user: vm.user,
       selectedRoom: null
     };
@@ -42,7 +41,7 @@
 
     function activate() {
       var lobby = ChatRoomService.fetchRoom(vm.data.lobbyName, vm.user);
-      lobby.connect(vm.data.lobbyName, vm.user).then(function() {
+      lobby.connect().then(function() {
         lobby.sendUserConnected();
         lobby.onUserConnected(userDetailsReceived);
         lobby.onUserDisconnected(userDisconnected);
@@ -56,7 +55,17 @@
         vm.data.selectedRoom.disconnect();
       }
 
-      //vm.data.selectedRoom = ChatRoomService.fetchRoom()
+      if (user.room === null) {
+        vm.data.selectedRoom = user.room;
+      } else {
+        vm.data.selectedRoom = user.room = ChatRoomService.startChatWithUser(vm.user, user)
+      }
+
+      vm.data.selectedRoom.connect().then(function() {
+        vm.data.selectedRoom.sendUserConnected();
+        vm.data.selectedRoom.onUserConnected(userDetailsReceived);
+        vm.data.selectedRoom.onUserDisconnected(userDisconnected);
+      });
     }
 
     function userDisconnected(userDetails) {
